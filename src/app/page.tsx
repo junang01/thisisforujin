@@ -1,16 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
-import Image from "next/image";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+interface AnswerSet {
+  memorable: string[];
+  reflection: string[];
+  plan: string[];
+}
+
+interface ApiResult {
+  sets: AnswerSet[];
+}
 
 export default function Home() {
   const [input, setInput] = useState("");
   const [topic, setTopic] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ApiResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 답변을 localStorage에 저장/불러오기
+  useEffect(() => {
+    const saved = localStorage.getItem("ujin_result");
+    if (saved) {
+      setResult(JSON.parse(saved));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (result) {
+      localStorage.setItem("ujin_result", JSON.stringify(result));
+    }
+  }, [result]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,11 +46,15 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input, topic }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "오류가 발생했습니다.");
+      const data: ApiResult = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error || "오류가 발생했습니다.");
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || "오류가 발생했습니다.");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "오류가 발생했습니다.");
+      } else {
+        setError("오류가 발생했습니다.");
+      }
     } finally {
       setLoading(false);
     }
@@ -112,7 +139,7 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
-            {!loading && result && answerSets.map((set: { memorable: string[]; reflection: string[]; plan: string[] }, idx: number) => (
+            {!loading && result && answerSets.map((set: AnswerSet, idx: number) => (
               <Card key={idx} className="border-pink-300 bg-white/90 shadow-pink-200 shadow-md w-full">
                 <CardHeader>
                   <CardTitle className="text-pink-600">답변 {idx + 1}</CardTitle>
